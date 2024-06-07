@@ -1,5 +1,6 @@
-import 'dart:io';
+// main.dart
 
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:qbitsmart/settings.dart';
@@ -7,13 +8,12 @@ import 'package:qbitsmart/torrent.dart';
 import 'package:qbitsmart/torrentdetailspage.dart';
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
-
+import 'add_torrent_page.dart';
 import 'connectioninfo.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final connectionInfo = await loadConnectionInfo();
-
   runApp(MyApp(connectionInfo: connectionInfo));
 }
 
@@ -70,17 +70,16 @@ class _MyHomePageState extends State<MyHomePage> {
   List<Torrent> _torrentList = [];
 
   @override
-  void initState()
-  {
+  void initState() {
     super.initState();
-    Future.delayed(Duration.zero,() async {
-      loginToQBitTorrent(widget.connectionInfo);
+    Future.delayed(Duration.zero, () async {
+      await loginToQBitTorrent(widget.connectionInfo);
+      await getTorrentList(widget.connectionInfo);
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    getTorrentList(widget.connectionInfo);
     return Scaffold(
       appBar: AppBar(
         title: Text('qBitRemote'),
@@ -88,136 +87,236 @@ class _MyHomePageState extends State<MyHomePage> {
       drawer: Drawer(
         child: ListView(
           padding: EdgeInsets.zero,
-          children: [
+          children: <Widget>[
             DrawerHeader(
               decoration: BoxDecoration(
                 color: Colors.blue,
               ),
               child: Text(
-                'Connected to: ${widget.connectionInfo.serverTitle}',
-                style: TextStyle(color: Colors.white),
+                'Torrent App',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 24,
+                ),
               ),
             ),
-            ListTile(
-              title: Text('Downloads'),
-              onTap: () {
-                Navigator.pop(context); // Close the drawer
-                // You can navigate to the downloads page or any other page here
-              },
-            ),
-            ListTile(
-              title: Text('Settings'),
-              onTap: () {
-                Navigator.pop(context); // Close the drawer
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => SettingsPage(connectionInfo: widget.connectionInfo),
-                  ),
-                );
-              },
-            ),
+            _createDrawerItem(icon: Icons.arrow_upward, text: 'All'),
+            _createDrawerItem(icon: Icons.arrow_downward, text: 'Downloading'),
+            _createDrawerItem(icon: Icons.check, text: 'Completed'),
+            _createDrawerItem(icon: Icons.upload, text: 'Seeding'),
+            _createDrawerItem(icon: Icons.pause, text: 'Paused'),
+            _createDrawerItem(icon: Icons.flash_on, text: 'Active'),
+            _createDrawerItem(icon: Icons.flash_off, text: 'Inactive'),
+            Divider(),
+            _createDrawerItem(icon: Icons.settings, text: 'Settings', onTap: () {
+              Navigator.push(context, MaterialPageRoute(builder: (context) => SettingsPage(connectionInfo: widget.connectionInfo)));
+              }),
+            _createDrawerItem(icon: Icons.upgrade, text: 'Get Pro'),
+            _createDrawerItem(icon: Icons.help, text: 'Help'),
           ],
         ),
       ),
       body: Center(
-        child: Column(
-          children: [
-            Expanded(
-              child: ListView.builder(
-                itemCount: _torrentList.length,
-                itemBuilder: (BuildContext context, int index) {
-                  return GestureDetector(
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => TorrentDetailsPage(torrent: _torrentList[index]),
-                        ),
-                      );
-                    },
-                    child: Card(
-                      child: ListTile(
-                        title: Text(_torrentList[index].name),
-                        subtitle: Column(
-                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('${_torrentList[index].category}'),
-                            Text('${(_torrentList[index].size /1024 / 1024/ 1024).toStringAsFixed(2)} GB / ${(_torrentList[index].completed / 1024 / 1024/ 1024).toStringAsFixed(2)} GB'),
-                            Text('Progress: ${_torrentList[index].progress * 100}% (Ratio: ${_torrentList[index].ratio.toStringAsFixed(2)})')
-                          ],
-                        ),
+        child: _torrentList.isEmpty
+            ? CircularProgressIndicator()
+            : ListView.builder(
+          itemCount: _torrentList.length,
+          itemBuilder: (BuildContext context, int index) {
+            return GestureDetector(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => TorrentDetailsPage(torrent: _torrentList[index]),
+                  ),
+                );
+              },
+              child: Card(
+                child: ListTile(
+                  title: Text(_torrentList[index].name),
+                  subtitle: Column(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('${_torrentList[index].category}'),
+                      Row(
+                        children: [
+                          Text(
+                            'Progress: ',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          SizedBox(width: 8),
+                          Expanded(
+                            child: LinearProgressIndicator(
+                              value: double.parse(_torrentList[index].progress),
+                            ),
+                          ),
+                          SizedBox(width: 8),
+                          Text('${(double.parse(_torrentList[index].progress) * 100).toStringAsFixed(1)}%'),
+                        ],
                       ),
-                    ),
-                  );
-                },
+                      Text('Size: ${(_torrentList[index].size / 1024 / 1024 / 1024).toStringAsFixed(2)} GB / '
+                          '${(_torrentList[index].completed / 1024 / 1024 / 1024).toStringAsFixed(2)} GB'),
+                      Text('Ratio: ${_torrentList[index].ratio.toStringAsFixed(2)}'),
+                    ],
+                  ),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: Icon(Icons.pause),
+                        onPressed: () => pauseTorrent(_torrentList[index].hash),
+                      ),
+                      IconButton(
+                        icon: Icon(Icons.delete),
+                        onPressed: () => deleteTorrent(_torrentList[index].hash, true),
+                      ),
+                    ],
+                  ),
+                ),
               ),
-            ),
-          ],
+            );
+          },
         ),
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-          setState(() {
-            //index = (index + 1) % customizations.length;
-          });
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => AddTorrentPage(cookie: _cookie, connectionInfo: widget.connectionInfo),
+            ),
+          );
         },
-        //foregroundColor: customizations[index].$1,
-        //backgroundColor: customizations[index].$2,
-        //shape: customizations[index].$3,
         child: const Icon(Icons.add),
       ),
     );
   }
 
+
+  Future<void> pauseTorrent(String hash) async {
+    final url = '${widget.connectionInfo.useHttps ? 'https' : 'http'}://${widget.connectionInfo.ipAddress}:${widget.connectionInfo.port}${widget.connectionInfo.path}/api/v2/torrents/pause';
+    try {
+      final response = await http.post(
+        Uri.parse(url),
+        headers: {
+          'Cookie': 'SID=$_cookie',
+        },
+        body: {
+          'hashes': hash,
+        },
+      );
+
+      if (response.statusCode != 200) {
+        _showErrorDialog('Failed to pause torrent: ${response.statusCode}');
+      }
+    } catch (e) {
+      _showErrorDialog('Error pausing torrent: $e');
+    }
+  }
+
+  Future<void> deleteTorrent(String hash, bool deleteFiles) async {
+    final url = '${widget.connectionInfo.useHttps ? 'https' : 'http'}://${widget.connectionInfo.ipAddress}:${widget.connectionInfo.port}${widget.connectionInfo.path}/api/v2/torrents/delete';
+    try {
+      final response = await http.post(
+        Uri.parse(url),
+        headers: {
+          'Cookie': 'SID=$_cookie',
+        },
+        body: {
+          'hashes': hash,
+          'deleteFiles': deleteFiles.toString(),
+        },
+      );
+
+      if (response.statusCode != 200) {
+        _showErrorDialog('Failed to delete torrent: ${response.statusCode}');
+      }
+    } catch (e) {
+      _showErrorDialog('Error deleting torrent: $e');
+    }
+  }
+
   Future<void> getTorrentList(ConnectionInfo connectionInfo) async {
     final url = '${connectionInfo.useHttps ? 'https' : 'http'}://${connectionInfo.ipAddress}:${connectionInfo.port}${connectionInfo.path}/api/v2/torrents/info';
 
-    final response = await http.get(
-      Uri.parse(url),
-      headers: {
-        'Cookie': 'SID=${_cookie}',
-      },
-    );
+    try {
+      final response = await http.get(
+        Uri.parse(url),
+        headers: {
+          'Cookie': 'SID=$_cookie',
+        },
+      );
 
-    if (response.statusCode == 200) {
-      final List<dynamic> data = json.decode(response.body);
-
-      setState(() {
-        _torrentList = data.map((json) => Torrent.fromJson(json)).toList();
-      });
-
-      print('Torrent List: $_torrentList');
-    } else {
-      print('Failed to get torrent list: ${response.statusCode}');
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(response.body);
+        setState(() {
+          _torrentList = data.map((json) => Torrent.fromJson(json)).toList();
+        });
+      } else {
+        _showErrorDialog('Failed to get torrent list: ${response.statusCode}');
+      }
+    } catch (e) {
+      _showErrorDialog('Error fetching torrent list: $e');
     }
   }
 
   Future<void> loginToQBitTorrent(ConnectionInfo connectionInfo) async {
-    loadConnectionInfo();
-
     final url = '${connectionInfo.useHttps ? 'https' : 'http'}://${connectionInfo.ipAddress}:${connectionInfo.port}${connectionInfo.path}/api/v2/auth/login';
 
-    final response = await http.post(
-      Uri.parse(url),
-      body: {
-        'username': connectionInfo.username,
-        'password': connectionInfo.password,
+    try {
+      final response = await http.post(
+        Uri.parse(url),
+        body: {
+          'username': connectionInfo.username,
+          'password': connectionInfo.password,
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final String? res = response.headers["set-cookie"];
+        final String? SID = res?.substring(4, 36);
+        setState(() {
+          _cookie = SID ?? "";
+        });
+      } else {
+        _showErrorDialog('Login failed: ${response.statusCode}');
+      }
+    } catch (e) {
+      _showErrorDialog('Error logging in: $e');
+    }
+  }
+  Widget _createDrawerItem(
+      {required IconData icon, required String text, GestureTapCallback? onTap}) {
+    return ListTile(
+      title: Row(
+        children: <Widget>[
+          Icon(icon),
+          Padding(
+            padding: EdgeInsets.only(left: 8.0),
+            child: Text(text),
+          )
+        ],
+      ),
+      onTap: onTap,
+    );
+  }
+
+  void _showErrorDialog(String message) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text('Error'),
+          content: Text(message),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text('OK'),
+            ),
+          ],
+        );
       },
     );
-
-    if (response.statusCode == 200) {
-      final String? res = response.headers["set-cookie"];
-      final String? SID = res?.substring(4,36);
-      print('tmp Cookie: $res, $SID');
-      setState(() {
-        _cookie = SID ?? "";
-      });
-
-      print('Login successful, Cookie: $_cookie');
-    } else {
-      print('Login failed: ${response.statusCode}');
-    }
   }
 }

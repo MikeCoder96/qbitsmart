@@ -1,7 +1,8 @@
+// settings.dart
+
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
 import 'connectioninfo.dart';
 
 class SettingsPage extends StatefulWidget {
@@ -14,18 +15,24 @@ class SettingsPage extends StatefulWidget {
 }
 
 class _SettingsPageState extends State<SettingsPage> {
-  TextEditingController _serverTitleController = TextEditingController();
-  TextEditingController _ipAddressController = TextEditingController();
-  TextEditingController _portController = TextEditingController();
-  TextEditingController _pathController = TextEditingController();
-  TextEditingController _usernameController = TextEditingController();
-  TextEditingController _passwordController = TextEditingController();
+  late TextEditingController _serverTitleController;
+  late TextEditingController _ipAddressController;
+  late TextEditingController _portController;
+  late TextEditingController _pathController;
+  late TextEditingController _usernameController;
+  late TextEditingController _passwordController;
   bool _useHttps = false;
   bool _trustSSL = true;
 
   @override
   void initState() {
     super.initState();
+    _serverTitleController = TextEditingController();
+    _ipAddressController = TextEditingController();
+    _portController = TextEditingController();
+    _pathController = TextEditingController();
+    _usernameController = TextEditingController();
+    _passwordController = TextEditingController();
     loadSettings();
   }
 
@@ -72,70 +79,76 @@ class _SettingsPageState extends State<SettingsPage> {
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            TextFormField(
-              controller: _serverTitleController,
-              decoration: InputDecoration(labelText: 'Server Title'),
-            ),
-            TextFormField(
-              controller: _ipAddressController,
-              decoration: InputDecoration(labelText: 'IP Address'),
-            ),
-            TextFormField(
-              controller: _portController,
-              decoration: InputDecoration(labelText: 'Port'),
-              keyboardType: TextInputType.number,
-            ),
-            TextFormField(
-              controller: _pathController,
-              decoration: InputDecoration(labelText: 'Path'),
-            ),
-            Row(
-              children: [
-                Text('Use HTTPS'),
-                Checkbox(
-                  value: _useHttps,
-                  onChanged: (value) {
-                    setState(() {
-                      _useHttps = value ?? false;
-                    });
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              TextFormField(
+                controller: _serverTitleController,
+                decoration: InputDecoration(labelText: 'Server Title'),
+              ),
+              TextFormField(
+                controller: _ipAddressController,
+                decoration: InputDecoration(labelText: 'IP Address'),
+              ),
+              TextFormField(
+                controller: _portController,
+                decoration: InputDecoration(labelText: 'Port'),
+                keyboardType: TextInputType.number,
+              ),
+              TextFormField(
+                controller: _pathController,
+                decoration: InputDecoration(labelText: 'Path'),
+              ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('Use HTTPS'),
+                  Checkbox(
+                    value: _useHttps,
+                    onChanged: (value) {
+                      setState(() {
+                        _useHttps = value ?? false;
+                      });
+                    },
+                  ),
+                ],
+              ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('Trust SSL'),
+                  Checkbox(
+                    value: _trustSSL,
+                    onChanged: (value) {
+                      setState(() {
+                        _trustSSL = value ?? true;
+                      });
+                    },
+                  ),
+                ],
+              ),
+              TextFormField(
+                controller: _usernameController,
+                decoration: InputDecoration(labelText: 'Username'),
+              ),
+              TextFormField(
+                controller: _passwordController,
+                decoration: InputDecoration(labelText: 'Password'),
+                obscureText: true,
+              ),
+              SizedBox(height: 20),
+              Center(
+                child: ElevatedButton(
+                  onPressed: () async {
+                    await saveSettings();
+                    Navigator.pop(context);
                   },
+                  child: Text('Save'),
                 ),
-              ],
-            ),
-            Row(
-              children: [
-                Text('Trust SSL'),
-                Checkbox(
-                  value: _trustSSL,
-                  onChanged: (value) {
-                    setState(() {
-                      _trustSSL = value ?? true;
-                    });
-                  },
-                ),
-              ],
-            ),
-            TextFormField(
-              controller: _usernameController,
-              decoration: InputDecoration(labelText: 'Username'),
-            ),
-            TextFormField(
-              controller: _passwordController,
-              decoration: InputDecoration(labelText: 'Password'),
-              obscureText: true,
-            ),
-            SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: () async {
-                await saveSettings();
-                Navigator.pop(context);
-              },
-              child: Text('Save'),
-            ),
-          ],
+              ),
+            ],
+          ),
         ),
       ),
     );

@@ -4,7 +4,7 @@ class Torrent {
   String hash;
   String name;
   int size;
-  int progress;
+  String progress;
   int priority;
   String category;
   String state;
@@ -46,11 +46,15 @@ class Torrent {
   });
 
   factory Torrent.fromJson(Map<String, dynamic> json) {
+    String progressValue = (json['progress'] is int)
+        ? (json['progress'] as int).toString()
+        : (json['progress'] as double).toString();
+
     return Torrent(
       hash: json['hash'] as String,
       name: json['name'] as String,
       size: json['size'] as int,
-      progress: json['progress'] as int,
+      progress: progressValue,
       priority: json['priority'] as int,
       completed: json['completed'] as int,
       category: json['category'] as String,
