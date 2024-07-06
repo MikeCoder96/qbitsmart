@@ -39,6 +39,7 @@ dependencies:
   shared_preferences: ^2.2.2
   http: ^0.13.3
   file_picker:
+  flutter_speed_dial:
 
 dev_dependencies:
   flutter_test:
