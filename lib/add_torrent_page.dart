@@ -1,46 +1,61 @@
-// add_torrent_page.dart
-
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:http/http.dart' as http;
 import 'connectioninfo.dart';
 
-class AddTorrentPage extends StatefulWidget {
+class AddTorrentDialog extends StatefulWidget {
   final String cookie;
   final ConnectionInfo connectionInfo;
+  final bool isAddingLocalFile;
 
-  const AddTorrentPage({required this.cookie, required this.connectionInfo});
+  const AddTorrentDialog({
+    required this.cookie,
+    required this.connectionInfo,
+    required this.isAddingLocalFile,
+  });
 
   @override
-  _AddTorrentPageState createState() => _AddTorrentPageState();
+  _AddTorrentDialogState createState() => _AddTorrentDialogState();
 }
 
-class _AddTorrentPageState extends State<AddTorrentPage> {
+class _AddTorrentDialogState extends State<AddTorrentDialog> {
   final TextEditingController _urlController = TextEditingController();
+  final TextEditingController _downloadSpeedController = TextEditingController();
+  final TextEditingController _uploadSpeedController = TextEditingController();
+  String _selectedCategory = 'default';
+  bool _startAfterAdded = true;
+  List<String> _categories = ['default'];
+  bool _isLoadingCategories = true;
 
-  Future<void> _addTorrentFromFile() async {
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['torrent'],
+  @override
+  void initState() {
+    super.initState();
+    _fetchCategories();
+  }
+
+  Future<void> _fetchCategories() async {
+    final url = '${widget.connectionInfo.useHttps ? 'https' : 'http'}://${widget.connectionInfo.ipAddress}:${widget.connectionInfo.port}${widget.connectionInfo.path}/api/v2/torrents/categories';
+
+    final response = await http.get(
+      Uri.parse(url),
+      headers: {
+        'Cookie': 'SID=${widget.cookie}',
+      },
     );
 
-    if (result != null) {
-      final file = File(result.files.single.path!);
-      final url = '${widget.connectionInfo.useHttps ? 'https' : 'http'}://${widget.connectionInfo.ipAddress}:${widget.connectionInfo.port}${widget.connectionInfo.path}/api/v2/torrents/add';
-
-      final request = http.MultipartRequest('POST', Uri.parse(url))
-        ..fields['autoTMM'] = 'false'
-        ..fields['cookie'] = widget.cookie
-        ..files.add(await http.MultipartFile.fromPath('torrents', file.path));
-
-      final response = await request.send();
-
-      if (response.statusCode == 200) {
-        _showSuccessDialog();
-      } else {
-        _showErrorDialog('Failed to add torrent from file: ${response.statusCode}');
-      }
+    if (response.statusCode == 200) {
+      final Map<String, dynamic> data = Map<String, dynamic>.from(json.decode(response.body));
+      setState(() {
+        _categories = data.keys.toList();
+        _isLoadingCategories = false;
+      });
+    } else {
+      setState(() {
+        _isLoadingCategories = false;
+      });
+      _showErrorDialog('Failed to fetch categories: ${response.statusCode}');
     }
   }
 
@@ -54,14 +69,102 @@ class _AddTorrentPageState extends State<AddTorrentPage> {
       },
       body: {
         'urls': _urlController.text,
+        'category': _selectedCategory,
+        'autoTMM': 'false',
+        'dlLimit': (_downloadSpeedController.text.isNotEmpty ? (int.parse(_downloadSpeedController.text) * 1024).toString() : '0'), // Convert to bytes
+        'upLimit': (_uploadSpeedController.text.isNotEmpty ? (int.parse(_uploadSpeedController.text) * 1024).toString() : '0'), // Convert to bytes
+        'paused': (!_startAfterAdded).toString(),
       },
     );
 
     if (response.statusCode == 200) {
+      Navigator.of(context).pop();
       _showSuccessDialog();
     } else {
       _showErrorDialog('Failed to add torrent from URL: ${response.statusCode}');
     }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text('Add Torrent'),
+      content: SingleChildScrollView(
+        child: SizedBox(
+          width: MediaQuery.of(context).size.width * 0.8,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (_isLoadingCategories)
+                Center(child: CircularProgressIndicator())
+              else if (!widget.isAddingLocalFile) ...[
+                Text('Add torrent from URL:'),
+                TextFormField(
+                  controller: _urlController,
+                  decoration: InputDecoration(
+                    hintText: 'Enter torrent URL',
+                  ),
+                ),
+                SizedBox(height: 16),
+                Text('Category:'),
+                DropdownButton<String>(
+                  isExpanded: true,
+                  value: _selectedCategory,
+                  onChanged: (String? newValue) {
+                    setState(() {
+                      _selectedCategory = newValue!;
+                    });
+                  },
+                  items: _categories.map<DropdownMenuItem<String>>((String value) {
+                    return DropdownMenuItem<String>(
+                      value: value,
+                      child: Text(value),
+                    );
+                  }).toList(),
+                ),
+                SizedBox(height: 16),
+                Text('Maximum Download Speed (KB/s):'),
+                TextFormField(
+                  controller: _downloadSpeedController,
+                  decoration: InputDecoration(
+                    hintText: 'Enter max download speed',
+                  ),
+                  keyboardType: TextInputType.number,
+                ),
+                SizedBox(height: 16),
+                Text('Maximum Upload Speed (KB/s):'),
+                TextFormField(
+                  controller: _uploadSpeedController,
+                  decoration: InputDecoration(
+                    hintText: 'Enter max upload speed',
+                  ),
+                  keyboardType: TextInputType.number,
+                ),
+                SizedBox(height: 16),
+                Row(
+                  children: [
+                    Checkbox(
+                      value: _startAfterAdded,
+                      onChanged: (bool? value) {
+                        setState(() {
+                          _startAfterAdded = value!;
+                        });
+                      },
+                    ),
+                    Text('Start after added'),
+                  ],
+                ),
+                SizedBox(height: 16),
+                ElevatedButton(
+                  onPressed: _addTorrentFromUrl,
+                  child: Text('Add Torrent'),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   void _showSuccessDialog() {
@@ -73,10 +176,7 @@ class _AddTorrentPageState extends State<AddTorrentPage> {
           content: Text('Torrent added successfully!'),
           actions: [
             TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-                Navigator.of(context).pop(); // Close the Add Torrent Page
-              },
+              onPressed: () => Navigator.of(context).pop(),
               child: Text('OK'),
             ),
           ],
@@ -100,41 +200,6 @@ class _AddTorrentPageState extends State<AddTorrentPage> {
           ],
         );
       },
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('Add Torrent'),
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Add torrent from URL:'),
-            TextFormField(
-              controller: _urlController,
-              decoration: InputDecoration(
-                hintText: 'Enter torrent URL',
-              ),
-            ),
-            SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: _addTorrentFromUrl,
-              child: Text('Add from URL'),
-            ),
-            SizedBox(height: 32),
-            Text('Add torrent from file:'),
-            ElevatedButton(
-              onPressed: _addTorrentFromFile,
-              child: Text('Select File'),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }

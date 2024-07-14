@@ -112,6 +112,11 @@ class _MyHomePageState extends State<MyHomePage> {
           .where((torrent) => (torrent.state == "downloading"))
           .toList();
 
+    if (filter == "Paused")
+      return _torrentList
+          .where((torrent) => (torrent.state == "paused"))
+          .toList();
+
     if (filter == "Seeding")
       return _torrentList
           .where((torrent) => (torrent.state == "uploading" || torrent.state == "queuedUP"|| torrent.state == "stalledUP"))
@@ -124,7 +129,7 @@ class _MyHomePageState extends State<MyHomePage> {
 
     if (filter == "Errored")
       return _torrentList
-          .where((torrent) => (torrent.state == "errored"))
+          .where((torrent) => (torrent.state == "errored" || torrent.state == "missingFiles" || torrent.state == "unknown"))
           .toList();
 
 
@@ -218,69 +223,74 @@ class _MyHomePageState extends State<MyHomePage> {
           itemCount: _filteredTorrentList(_selectedFilter).length,
           itemBuilder: (BuildContext context, int index) {
             final torrent = _filteredTorrentList(_selectedFilter)[index];
-            return GestureDetector(
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => TorrentDetailsPage(torrent: torrent),
-                  ),
-                );
-              },
-              child: Card(
-                child: ListTile(
-                  title: Text(torrent.name),
-                  subtitle: Column(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('${torrent.category}'),
-                      if (torrent.state == "downloading")...[
+            return Card(
+              child: Padding(
+                padding: EdgeInsets.all(8.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            torrent.name,
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
                         Row(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
-                            Text(
-                              'Progress: ',
-                              style: TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                            SizedBox(width: 8),
-                            Expanded(
-                              child: LinearProgressIndicator(
-                                value: double.parse(torrent.progress),
+                            if (torrent.state == "downloading" || torrent.state == "uploading" || torrent.state == "queuedUP" || torrent.state == "queuedDL" || torrent.state == "stalledUP" || torrent.state == "stalledDL")
+                              IconButton(
+                                icon: Icon(Icons.pause, size: 20),
+                                padding: EdgeInsets.zero,
+                                constraints: BoxConstraints(),
+                                onPressed: () => pauseTorrent(torrent.hash),
                               ),
+                            if (torrent.state == "pausedDL" || torrent.state == "pausedUP")
+                              IconButton(
+                                icon: Icon(Icons.play_arrow, size: 20),
+                                padding: EdgeInsets.zero,
+                                constraints: BoxConstraints(),
+                                onPressed: () => resumeTorrent(torrent.hash),
+                              ),
+                            IconButton(
+                              icon: Icon(Icons.delete, size: 20),
+                              padding: EdgeInsets.zero,
+                              constraints: BoxConstraints(),
+                              onPressed: () => deleteTorrent(torrent.hash, true),
                             ),
-                            SizedBox(width: 8),
-                            Text('${(double.parse(torrent.progress) * 100).toStringAsFixed(1)}%'),
                           ],
                         ),
-                        Text('Download: ${(torrent.downloadSpeed / 1024 / 1024).toStringAsFixed(2)} MB/s'),
-                        Text('Upload: ${(torrent.uploadSpeed / 1024 / 1024).toStringAsFixed(2)} MB/s'),
                       ],
-
-
-                      Text('Size: ${(torrent.size / 1024 / 1024 / 1024).toStringAsFixed(2)} GB / '
-                          '${(torrent.completed / 1024 / 1024 / 1024).toStringAsFixed(2)} GB'),
-                      Text('(${((torrent.size * torrent.ratio)/ 1024 / 1024 / 1024).toStringAsFixed(2)}) Ratio: ${torrent.ratio.toStringAsFixed(2)}'),
-                    ],
-                  ),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (torrent.state == "downloading" || torrent.state == "uploading" || torrent.state == "queuedUP" || torrent.state == "queuedDL" || torrent.state == "stalledUP" || torrent.state == "stalledDL")
-                        IconButton(
-                          icon: Icon(Icons.pause),
-                          onPressed: () => pauseTorrent(torrent.hash),
+                    ),
+                    SizedBox(height: 4),
+                    Text('Size: ${(torrent.size / 1024 / 1024 / 1024).toStringAsFixed(2)} GB / '
+                        '${(torrent.completed / 1024 / 1024 / 1024).toStringAsFixed(2)} GB'),
+                    Text('Ratio: ${torrent.ratio.toStringAsFixed(2)}'),
+                    SizedBox(height: 2),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text(
+                              '↑ ${(torrent.uploadSpeed / 1024 / 1024).toStringAsFixed(2)} MB/s',
+                              style: TextStyle(fontSize: 12),
+                            ),
+                            Text(
+                              '↓ ${(torrent.downloadSpeed / 1024 / 1024).toStringAsFixed(2)} MB/s',
+                              style: TextStyle(fontSize: 12),
+                            ),
+                          ],
                         ),
-                      if (torrent.state == "pausedDL" || torrent.state == "pausedUP")
-                        IconButton(
-                          icon: Icon(Icons.play_arrow),
-                          onPressed: () => resumeTorrent(torrent.hash),
-                        ),
-                      IconButton(
-                        icon: Icon(Icons.delete),
-                        onPressed: () => deleteTorrent(torrent.hash, true),
-                      ),
-                    ],
-                  ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
             );
@@ -288,16 +298,33 @@ class _MyHomePageState extends State<MyHomePage> {
         ),
       ),
       floatingActionButton: SpeedDial(
-          icon: Icons.add,
-          children: [
-            SpeedDialChild(
-              child: Icon(Icons.link),
-              onTap: null,),
-            SpeedDialChild(
-              child: Icon(Icons.file_open),
-              onTap: null,),
-          ]
+        icon: Icons.add,
+        children: [
+          SpeedDialChild(
+            child: Icon(Icons.link),
+            onTap: () => showDialog(
+              context: context,
+              builder: (context) => AddTorrentDialog(
+                cookie: _cookie,
+                connectionInfo: widget.connectionInfo,
+                isAddingLocalFile: false,
+              ),
+            ),
+          ),
+          SpeedDialChild(
+            child: Icon(Icons.file_open),
+            onTap: () => showDialog(
+              context: context,
+              builder: (context) => AddTorrentDialog(
+                cookie: _cookie,
+                connectionInfo: widget.connectionInfo,
+                isAddingLocalFile: true,
+              ),
+            ),
+          ),
+        ],
       ),
+
     );
   }
 
