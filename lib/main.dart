@@ -137,6 +137,26 @@ class _MyHomePageState extends State<MyHomePage> {
 
   }
 
+  String formatDataUnit(int value, {bool isSpeed = false}) {
+    double size = value.toDouble();
+    final units = ['B', 'KB', 'MB', 'GB'];
+    int unitIndex = 0;
+
+    while (size >= 1024 && unitIndex < units.length - 1) {
+      size /= 1024;
+      unitIndex++;
+    }
+
+    String formattedValue = size.toStringAsFixed(2);
+    String unit = units[unitIndex];
+
+    if (isSpeed) {
+      unit += '/s';
+    }
+
+    return '$formattedValue $unit';
+  }
+
   @override
   void dispose() {
     _timer?.cancel(); // Cancel the timer when the widget is disposed
@@ -268,8 +288,7 @@ class _MyHomePageState extends State<MyHomePage> {
                       ],
                     ),
                     SizedBox(height: 4),
-                    Text('Size: ${(torrent.size / 1024 / 1024 / 1024).toStringAsFixed(2)} GB / '
-                        '${(torrent.completed / 1024 / 1024 / 1024).toStringAsFixed(2)} GB'),
+                    Text('Size: ${formatDataUnit(torrent.size)} / ${formatDataUnit(torrent.completed)}'),
                     Text('Ratio: ${torrent.ratio.toStringAsFixed(2)}'),
                     SizedBox(height: 2),
                     Row(
@@ -279,11 +298,11 @@ class _MyHomePageState extends State<MyHomePage> {
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
                             Text(
-                              '↑ ${(torrent.uploadSpeed / 1024 / 1024).toStringAsFixed(2)} MB/s',
+                              '↑ ${formatDataUnit(torrent.uploadSpeed, isSpeed: true)}',
                               style: TextStyle(fontSize: 12),
                             ),
                             Text(
-                              '↓ ${(torrent.downloadSpeed / 1024 / 1024).toStringAsFixed(2)} MB/s',
+                              '↓ ${formatDataUnit(torrent.downloadSpeed, isSpeed: true)}',
                               style: TextStyle(fontSize: 12),
                             ),
                           ],
