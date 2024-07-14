@@ -22,9 +22,10 @@ jobs:
     - uses: actions/setup-java@v1
       with:
         java-version: '12.x'
-    - uses: subosito/flutter-action@v1.4.0
+    - uses: subosito/flutter-action@v2
       with:
         channel: 'stable'
+        flutter-version-file: pubspec.yaml
     - run: flutter pub get
     
     #This snippet that helped me was borrowed from https://gist.github.com/devhammed/617d920b7ee886591a46c22633ab0093
