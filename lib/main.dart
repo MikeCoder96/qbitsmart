@@ -428,10 +428,10 @@ class _MyHomePageState extends State<MyHomePage> {
           _torrentList = data.map((json) => Torrent.fromJson(json)).toList();
         });
       } else {
-        _showErrorDialog('Failed to get torrent list: ${response.statusCode}');
+        //_showErrorDialog('Failed to get torrent list: ${response.statusCode}');
       }
     } catch (e) {
-      _showErrorDialog('Error fetching torrent list: $e');
+      //_showErrorDialog('Error fetching torrent list: $e');
     }
   }
 
