@@ -28,7 +28,7 @@ Future<ConnectionInfo> loadConnectionInfo() async {
   } else {
     return ConnectionInfo(
       serverTitle: 'My qBittorrent Server',
-      ipAddress: '192.168.1.1',
+      ipAddress: '0.0.0.0',
       port: 8080,
       path: '/qb',
       useHttps: false,
@@ -96,7 +96,7 @@ class _MyHomePageState extends State<MyHomePage> {
     });
 
     // Initialize the timer to refresh every second
-    _timer = Timer.periodic(Duration(seconds: 1), (Timer t) => getTorrentList(widget.connectionInfo));
+    _timer = Timer.periodic(Duration(seconds: 2), (Timer t) => getTorrentList(widget.connectionInfo));
   }
 
 
@@ -243,7 +243,19 @@ class _MyHomePageState extends State<MyHomePage> {
           itemCount: _filteredTorrentList(_selectedFilter).length,
           itemBuilder: (BuildContext context, int index) {
             final torrent = _filteredTorrentList(_selectedFilter)[index];
-            return Card(
+            return GestureDetector(
+                onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => TorrentDetailsPage(
+                    torrent: torrent,
+                    connectionInfo: widget.connectionInfo,
+                    cookie: _cookie,),
+                ),
+              );
+            },
+            child:Card(
               child: Padding(
                 padding: EdgeInsets.all(8.0),
                 child: Column(
@@ -312,6 +324,7 @@ class _MyHomePageState extends State<MyHomePage> {
                   ],
                 ),
               ),
+            ),
             );
           },
         ),
