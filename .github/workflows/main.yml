@@ -36,10 +36,10 @@ jobs:
           cd Payload
           ln -s ../Runner.app
           cd ..
-          zip -r app.ipa Payload
+          zip -r qBitSmart.ipa Payload
     
     # Upload generated ipa to the artifacts.
     - uses: actions/upload-artifact@v2
       with:
         name: release-ipa
-        path: build/ios/iphoneos/app.ipa 
+        path: build/ios/iphoneos/qBitSmart.ipa 
